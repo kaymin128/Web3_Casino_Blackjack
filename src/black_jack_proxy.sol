@@ -40,15 +40,6 @@ contract BlackJackProxy {
         (bool success,)=implementation.delegatecall(abi.encodeWithSignature("initialize()"));
         require(success, "initialize delegation fail");
     }
-    // register만 multicall
-    // function register_multicall(bytes[7] calldata data) external payable returns (bytes[7] memory results){
-    //     bytes[7] memory results;
-    //     for (uint i = 0; i < 7; i++) {
-    //         (bool success, bytes memory result) = implementation.delegatecall(data[i]);
-    //         results[i] = result;
-    //     }
-    //     return results;
-    // }
     function register(uint betting) external payable returns (uint key) {
         require(msg.value==betting, "value no match");
         (bool success, bytes memory ret)=implementation.delegatecall(abi.encodeWithSignature("register(uint256)", betting));
