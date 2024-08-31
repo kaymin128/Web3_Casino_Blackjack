@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-contract black_jack {
+contract BlackJack {
+    mapping (uint=>player) private player_info;// player_info[key]라는 구조체 변수 생성
     address public dealer;
     uint public total_bet;
     bool all_stay;
@@ -33,11 +34,10 @@ contract black_jack {
         address addr;
     }
 
-    mapping (uint=>player) private player_info;// player_info[key]라는 구조체 변수 생성
     uint player_count;
     uint[13] cards;
 
-    constructor(){// 카드를 값을 정해줌
+    function initialize() external {// 카드를 값을 정해줌
         for (uint i=0;i<13;i++){
             cards[i]=i+1;
         }
@@ -152,7 +152,7 @@ contract black_jack {
         finish_game();
     }
 
-    function finish_game() is_dealer_choosed stop_in_emergency public payable {
+    function finish_game() is_dealer_choosed stop_in_emergency public {
         // Checks 단계: is_dealer_choosed modifier로 상태를 먼저 확인하고, 필요한 조건을 만족하는지 검증
         // Effects 단계: 상태를 먼저 변경하여 재진입 공격을 방지
         p_state = program_state.finished_game;
@@ -179,7 +179,7 @@ contract black_jack {
     
     }
 
-    function withdraw() external { // Pull over Push: 사용자가 원할때 직접 보상을 인출
+    function withdraw() external payable{ // Pull over Push: 사용자가 원할때 직접 보상을 인출
         uint amount = pending_withdrawals[msg.sender];
         pending_withdrawals[msg.sender] = 0;
         (bool success, ) = msg.sender.call{value: amount}("");
@@ -207,5 +207,4 @@ contract black_jack {
     receive() external payable{
 
     }
-
 }
