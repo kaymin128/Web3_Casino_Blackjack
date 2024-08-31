@@ -1,0 +1,31 @@
+카드는 총 52장(1~13까지 총 4문양)
+
+<규칙>
+플레이어는 무작위 두장의 카드를 받음
+플레이어는 두장의 카드의 합을 계산하고, 카드를 더 받고싶으면 힛, 받고 싶지 않으면 스테이를 선택
+플레이어는 최대한 카드의 합을 21에 근접하게 해야 하지만, 21 초과하면 게임오버하여 베팅 금액을 잃게 됨.
+스테이했을때의 플레이어의 카드 합 = 플레이 num
+
+플레이어 수=8
+게임에 참여한 플레이어들이 모두 스테이하게 되면 딜러가 자신의 카드를 추가로 받게 됨
+딜러는 자신이 가진 카드의 합이 17 이상이 되면 더이상 카드를 받지 않음 (최소 17까지가 딜러의 num)
+
+최종
+딜러 num >= 플레이 num: 베팅 금액 잃음
+딜러 num < 플레이 num: 보상금 얻음
+
+    enum program_state{
+        new_born,
+        players_registered,
+        dealer_registered,
+        people_choosed,
+        dealer_choosed,
+        finished_game
+    }
+
+(Required) State Machine: 상태는 3개 이상을 구현합니다. (O)
+(Required) Multicall Pattern: 1개 이상의 멀티콜을 사용할 수 있도록 합니다.
+(Required) Proxy Pattern: 수업시간에 배운 프록시 구조 중 하나를 선택해 임의로 사용해도 무관합니다.
+(Required) Checks Effects Interactions (O)
+(Required) Pull over Push (O)
+(Required) Emergency Stop (O)
