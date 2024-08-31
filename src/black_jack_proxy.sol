@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
-
+import "../lib/forge-std/src/console.sol";
 contract BlackJackProxy {
     mapping (uint=>player) private player_info;// player_info[key]라는 구조체 변수 생성
     address public dealer;
@@ -37,27 +37,37 @@ contract BlackJackProxy {
         implementation = _implementation;// 실제 구현 컨트랙트의 주소 저장
     }
     function initialize() external{
-        implementation.delegatecall(abi.encodeWithSignature("initialize()"));
+        (bool success,)=implementation.delegatecall(abi.encodeWithSignature("initialize()"));
+        require(success, "initialize delegation fail");
     }
     // register만 multicall
-    function register_multicall(bytes[] calldata data) external returns (bytes[] memory results){
-        results=new bytes[](data.length);
-        for (uint i = 0; i < data.length; i++) {
-            (bool success, bytes memory result) = implementation.delegatecall(data[i]);
-            results[i] = result;
-        }
-        return results;
+    // function register_multicall(bytes[7] calldata data) external payable returns (bytes[7] memory results){
+    //     bytes[7] memory results;
+    //     for (uint i = 0; i < 7; i++) {
+    //         (bool success, bytes memory result) = implementation.delegatecall(data[i]);
+    //         results[i] = result;
+    //     }
+    //     return results;
+    // }
+    function register(uint betting) external payable returns (uint key) {
+        require(msg.value==betting, "value no match");
+        (bool success, bytes memory ret)=implementation.delegatecall(abi.encodeWithSignature("register(uint256)", betting));
+        uint key=abi.decode(ret, (uint256));
+        return key;
     }
-    function dealer_register(uint betting) external{
-        implementation.delegatecall(abi.encodeWithSignature("dealer_register(uint)", betting));
+    function dealer_register(uint betting) external payable {
+        implementation.delegatecall(abi.encodeWithSignature("dealer_register(uint256)", betting));
     }
     function hit(uint key) external returns (uint num){
-        (bool success, bytes memory ret)=implementation.delegatecall(abi.encodeWithSignature("hit(uint)", key));
+        (bool success, bytes memory ret)=implementation.delegatecall(abi.encodeWithSignature("hit(uint256)", key));
         uint num=abi.decode(ret, (uint256));
         return num;
     }
     function stay(uint key) external{
-        implementation.delegatecall(abi.encodeWithSignature("stay(uint)", key));
+        implementation.delegatecall(abi.encodeWithSignature("stay(uint256)", key));
+    }
+    function dealing_time() external{
+        implementation.delegatecall(abi.encodeWithSignature("dealing_time()"));
     }
     function finish_game() external {
         implementation.delegatecall(abi.encodeWithSignature("finish_game()"));

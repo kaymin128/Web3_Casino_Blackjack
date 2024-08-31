@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
-
+import "../lib/forge-std/src/console.sol";
 contract BlackJack {
     mapping (uint=>player) private player_info;// player_info[key]라는 구조체 변수 생성
     address public dealer;
@@ -89,7 +89,7 @@ contract BlackJack {
         _; 
     }
 
-    function register(uint betting) stop_in_emergency is_new_born external returns (uint key){// 사용자가 플레이어로 등록하고 베팅
+    function register(uint betting) stop_in_emergency is_new_born external payable returns (uint key){// 사용자가 플레이어로 등록하고 베팅
         require(betting>1 ether, "not enough betting");
         player_info[player_count].bet+=betting;
         total_bet+=betting;
@@ -102,8 +102,8 @@ contract BlackJack {
         return player_count-1;
     }
 
-    function dealer_register(uint betting) is_players_registered stop_in_emergency external{
-        require(betting>1 ether, "not enough betting");
+    function dealer_register(uint betting) is_players_registered stop_in_emergency external payable{
+        require(betting> 1 ether, "not enough betting");
         total_bet+=betting;
         dealer=address(msg.sender);
         p_state=program_state.dealer_registered;
@@ -121,7 +121,6 @@ contract BlackJack {
             }// 모두가 staying 중인지 확인
             if (stay==true){
                 p_state=program_state.people_choosed;
-                dealing_time();
             }// 모두가 staying/failed 면, 마지막에 fail한 사람이 dealing_time()과 finish_game()까지 실행함
         }
         return player_info[key].num;
@@ -137,11 +136,10 @@ contract BlackJack {
         }// 모두가 staying 중인지 확인
         if (stay==true){
             p_state=program_state.people_choosed;
-            dealing_time();
         }// 모두가 staying/failed 면, 마지막에 stay한 사람이 dealing_time()과 finish_game()까지 실행함
     }
  
-    function dealing_time() is_people_choosed stop_in_emergency private {
+    function dealing_time() is_people_choosed stop_in_emergency public {
         while(true){
             deal_num+=cards[uint(keccak256(abi.encodePacked(block.difficulty, block.timestamp)))%13];
             if (deal_num>=17){
@@ -181,6 +179,7 @@ contract BlackJack {
 
     function withdraw() external payable{ // Pull over Push: 사용자가 원할때 직접 보상을 인출
         uint amount = pending_withdrawals[msg.sender];
+        require(amount>0, "you are not winner");
         pending_withdrawals[msg.sender] = 0;
         (bool success, ) = msg.sender.call{value: amount}("");
         require(success, "withdrawal failed");
