@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 import "../lib/forge-std/src/console.sol";
 contract BlackJack {
+    address public implementation;
     mapping (uint=>player) private player_info;// player_info[key]라는 구조체 변수 생성
     address public dealer;
     uint public total_bet;
@@ -11,7 +12,6 @@ contract BlackJack {
     program_state public p_state;
     bool private stopped; // Emergency Stop: 계약의 실행을 중지할 수 있는 플래그
     mapping(address => uint) public pending_withdrawals; // Pull over Push: 보상을 직접 인출할 수 있도록 보상 대기열을 관리
-    
     enum program_state{// State Machine: 상태 6개를 구현하여 각 상태에 따른 단계별 행동(함수)를 지정
         new_born,
         players_registered,
@@ -37,9 +37,13 @@ contract BlackJack {
     uint player_count;
     uint[13] cards;
 
-    function initialize() external {// 카드를 값을 정해줌
+    function initialize() external {// 카드를 값을 정해 주고 초기화 해줌(이전 게임 정보 삭제)
+        dealer=address(0);
         for (uint i=0;i<13;i++){
             cards[i]=i+1;
+        }
+        for (uint i=0;i<player_count;i++){
+            delete player_info[i];
         }
         all_stay=false;
         player_count=0;
@@ -47,6 +51,7 @@ contract BlackJack {
         total_bet=0;
         p_state=program_state.new_born;
         stopped=false;
+        delete winner;
     }
 
     modifier only_player(uint key){
@@ -89,8 +94,9 @@ contract BlackJack {
         _; 
     }
 
-    function register(uint betting) stop_in_emergency is_new_born external payable returns (uint key){// 사용자가 플레이어로 등록하고 베팅
+    function register(uint256 betting) stop_in_emergency is_new_born external payable returns (uint key){// 사용자가 플레이어로 등록하고 베팅
         require(betting>1 ether, "not enough betting");
+        require(msg.value==betting, "no match");
         player_info[player_count].bet+=betting;
         total_bet+=betting;
         player_info[player_count].current_state=state.hit;
@@ -102,14 +108,14 @@ contract BlackJack {
         return player_count-1;
     }
 
-    function dealer_register(uint betting) is_players_registered stop_in_emergency external payable{
+    function dealer_register(uint256 betting) is_players_registered stop_in_emergency external payable{
         require(betting> 1 ether, "not enough betting");
         total_bet+=betting;
         dealer=address(msg.sender);
         p_state=program_state.dealer_registered;
     }// 플레이어 8명이 다 등록을 끝내면 딜러가 등록함
 
-    function hit(uint key) stop_in_emergency only_player(key) is_dealer_registered external returns (uint num){
+    function hit(uint256 key) stop_in_emergency only_player(key) is_dealer_registered external returns (uint num){
         player_info[key].num+=cards[uint(keccak256(abi.encodePacked(block.difficulty, block.timestamp)))%13];
         if (player_info[key].num>21){
             failed(key);
@@ -126,7 +132,7 @@ contract BlackJack {
         return player_info[key].num;
     }
 
-    function stay(uint key) only_player(key) stop_in_emergency is_dealer_registered external{
+    function stay(uint256 key) only_player(key) stop_in_emergency is_dealer_registered external{
         player_info[key].current_state=state.stay;
         bool stay=true;
         for (uint i=0;i<player_count;i++){
@@ -154,7 +160,6 @@ contract BlackJack {
         // Checks 단계: is_dealer_choosed modifier로 상태를 먼저 확인하고, 필요한 조건을 만족하는지 검증
         // Effects 단계: 상태를 먼저 변경하여 재진입 공격을 방지
         p_state = program_state.finished_game;
-    
         for (uint i = 0; i < player_count; i++) {
             if (player_info[i].current_state == state.stay && player_info[i].num >= deal_num) {
                 winner.push(i);
@@ -169,10 +174,12 @@ contract BlackJack {
             uint reward = total_bet / winner.length;
             for (uint i = 0; i < winner.length; i++) {
                 pending_withdrawals[player_info[winner[i]].addr] += reward; // Pull over Push: 직접 인출을 위해 보상 대기열에 추가
+                total_bet-=reward;
             }
         } 
         else {
             pending_withdrawals[dealer] += total_bet; // Pull over Push: 딜러에게 보상을 대기열에 추가
+            total_bet=0;
         }
     
     }
@@ -183,19 +190,6 @@ contract BlackJack {
         pending_withdrawals[msg.sender] = 0;
         (bool success, ) = msg.sender.call{value: amount}("");
         require(success, "withdrawal failed");
-    }
-
-    function refresh() is_finished_game external {// 게임을 끝내고 new game을 위해 초기화
-        dealer=address(0);
-        all_stay=false;
-        for (uint i=0;i<player_count;i++){
-            delete player_info[i];// player_info 정보를 삭제
-        }
-        player_count=0;
-        deal_num=0;
-        total_bet=0;
-        delete winner;
-        p_state=program_state.new_born;
     }
 
     function failed(uint key) private {
