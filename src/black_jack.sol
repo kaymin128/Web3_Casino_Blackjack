@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 import "../lib/forge-std/src/console.sol";
 contract BlackJack {
     address public implementation;
+    address private owner;
     mapping (uint=>player) private player_info;// player_info[key]라는 구조체 변수 생성
     address public dealer;
     uint public total_bet;
@@ -12,6 +13,7 @@ contract BlackJack {
     program_state public p_state;
     bool private stopped; // Emergency Stop: 계약의 실행을 중지할 수 있는 플래그
     mapping(address => uint) public pending_withdrawals; // Pull over Push: 보상을 직접 인출할 수 있도록 보상 대기열을 관리
+
     enum program_state{// State Machine: 상태 6개를 구현하여 각 상태에 따른 단계별 행동(함수)를 지정
         new_born,
         players_registered,
@@ -37,22 +39,10 @@ contract BlackJack {
     uint player_count;
     uint[13] cards;
 
-    function initialize() external {// 카드를 값을 정해 주고 초기화 해줌(이전 게임 정보 삭제)
-        dealer=address(0);
-        for (uint i=0;i<13;i++){
-            cards[i]=i+1;
-        }
-        for (uint i=0;i<player_count;i++){
-            delete player_info[i];
-        }
-        all_stay=false;
-        player_count=0;
-        deal_num=0;
-        total_bet=0;
-        p_state=program_state.new_born;
-        stopped=false;
-        delete winner;
-    }
+    constructor(){
+        owner=address(msg.sender);
+        stopped=true;
+    } 
 
     modifier only_player(uint key){
         require(player_info[key].addr==address(msg.sender), "you are not the player");
@@ -69,6 +59,27 @@ contract BlackJack {
         _; 
     }
 
+    modifier only_owner(){
+        require(owner==address(msg.sender), "no access");
+        _;
+    }
+
+    function initialize() external {// 카드를 값을 정해 주고 초기화 해줌(이전 게임 정보 삭제)
+        dealer=address(0);
+        for (uint i=0;i<13;i++){
+            cards[i]=i+1;
+        }
+        for (uint i=0;i<player_count;i++){
+            delete player_info[i];
+        }
+        all_stay=false;
+        player_count=0;
+        deal_num=0;
+        total_bet=0;
+        p_state=program_state.new_born;
+        delete winner;
+    }
+    
     function register(uint256 betting) stop_in_emergency in_state(program_state.new_born) external payable returns (uint key){// 사용자가 플레이어로 등록하고 베팅
         require(betting>1 ether, "not enough betting");
         require(msg.value==betting, "no match");
@@ -127,6 +138,9 @@ contract BlackJack {
                 break;
             }
         }// deal_num까지 구하면
+        if (deal_num>21){
+            deal_num=0; //dealer loose..사용자들은 모두 딜러를 이기게 됨
+        }
         p_state=program_state.dealer_choosed;
         finish_game();
     }
@@ -172,6 +186,14 @@ contract BlackJack {
         player_info[key].current_state=state.dead;
     }
 
+    function emergency() only_owner public {
+        stopped=true;
+    }
+
+    function finish_emergency() only_owner public{
+        stopped=false;
+    }
+    
     receive() external payable{
 
     }
