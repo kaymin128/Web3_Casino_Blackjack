@@ -59,33 +59,8 @@ contract BlackJack {
         _;
     }
 
-    modifier is_new_born(){
-        require(p_state==program_state.new_born, "not right timing");
-        _;
-    }
-
-    modifier is_players_registered(){
-        require(p_state==program_state.players_registered, "not right timing");
-        _;
-    }
-
-    modifier is_dealer_registered(){
-        require(p_state==program_state.dealer_registered, "not right timing");
-        _;
-    }
-
-    modifier is_people_choosed(){
-        require(p_state==program_state.people_choosed, "not right timing");
-        _;
-    }
-    
-    modifier is_dealer_choosed(){
-        require(p_state==program_state.dealer_choosed, "not right timing");
-        _;
-    }
-
-    modifier is_finished_game(){
-        require(p_state==program_state.finished_game, "not right timing");
+    modifier in_state(program_state state){
+        require(p_state==state, "not available at this state");
         _;
     }
 
@@ -94,7 +69,7 @@ contract BlackJack {
         _; 
     }
 
-    function register(uint256 betting) stop_in_emergency is_new_born external payable returns (uint key){// 사용자가 플레이어로 등록하고 베팅
+    function register(uint256 betting) stop_in_emergency in_state(program_state.new_born) external payable returns (uint key){// 사용자가 플레이어로 등록하고 베팅
         require(betting>1 ether, "not enough betting");
         require(msg.value==betting, "no match");
         player_info[player_count].bet+=betting;
@@ -108,14 +83,14 @@ contract BlackJack {
         return player_count-1;
     }
 
-    function dealer_register(uint256 betting) is_players_registered stop_in_emergency external payable{
+    function dealer_register(uint256 betting) in_state(program_state.players_registered) stop_in_emergency external payable{
         require(betting> 1 ether, "not enough betting");
         total_bet+=betting;
         dealer=address(msg.sender);
         p_state=program_state.dealer_registered;
     }// 플레이어 8명이 다 등록을 끝내면 딜러가 등록함
 
-    function hit(uint256 key) stop_in_emergency only_player(key) is_dealer_registered external returns (uint num){
+    function hit(uint256 key) stop_in_emergency only_player(key) in_state(program_state.dealer_registered) external returns (uint num){
         player_info[key].num+=cards[uint(keccak256(abi.encodePacked(block.difficulty, block.timestamp)))%13];
         if (player_info[key].num>21){
             failed(key);
@@ -132,7 +107,7 @@ contract BlackJack {
         return player_info[key].num;
     }
 
-    function stay(uint256 key) only_player(key) stop_in_emergency is_dealer_registered external{
+    function stay(uint256 key) only_player(key) stop_in_emergency in_state(program_state.dealer_registered) external{
         player_info[key].current_state=state.stay;
         bool stay=true;
         for (uint i=0;i<player_count;i++){
@@ -145,7 +120,7 @@ contract BlackJack {
         }// 모두가 staying/failed 면, 마지막에 stay한 사람이 dealing_time()과 finish_game()까지 실행함
     }
  
-    function dealing_time() is_people_choosed stop_in_emergency public {
+    function dealing_time() in_state(program_state.people_choosed) stop_in_emergency public {
         while(true){
             deal_num+=cards[uint(keccak256(abi.encodePacked(block.difficulty, block.timestamp)))%13];
             if (deal_num>=17){
@@ -156,7 +131,7 @@ contract BlackJack {
         finish_game();
     }
 
-    function finish_game() is_dealer_choosed stop_in_emergency public {
+    function finish_game() in_state(program_state.dealer_choosed) stop_in_emergency public {
         // Checks 단계: is_dealer_choosed modifier로 상태를 먼저 확인하고, 필요한 조건을 만족하는지 검증
         // Effects 단계: 상태를 먼저 변경하여 재진입 공격을 방지
         p_state = program_state.finished_game;
